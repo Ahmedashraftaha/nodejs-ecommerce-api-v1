@@ -1,10 +1,11 @@
-const express = require('express');
-const dotenv = require('dotenv');
-const morgan = require('morgan');
-
-dotenv.config({ path: 'config.env' });
-const dbConnection = require('./config/database');
-const categoryRoute = require('./routes/categoryRoute');
+const express = require("express");
+const dotenv = require("dotenv");
+const morgan = require("morgan");
+const ApiError = require("./utils/apiError");
+const globalError = require("./middlewares/errorMiddlewares");
+dotenv.config({ path: "config.env" });
+const dbConnection = require("./config/database");
+const categoryRoute = require("./routes/categoryRoute");
 
 // Connect with db
 dbConnection();
@@ -15,15 +16,29 @@ const app = express();
 // Middlewares
 app.use(express.json());
 
-if (process.env.NODE_ENV === 'development') {
-  app.use(morgan('dev'));
+if (process.env.NODE_ENV === "development") {
+  app.use(morgan("dev"));
   console.log(`mode: ${process.env.NODE_ENV}`);
 }
 
 // Mount Routes
-app.use('/api/v1/categories', categoryRoute);
+app.use("/api/v1/categories", categoryRoute);
+app.all("*", (req, res, next) => {
+  next(new ApiError(`ctan't find this route ${req.originalUrl}`, 400));
+});
+// Global handel error
+app.use(globalError);
 
 const PORT = process.env.PORT || 8000;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`App running running on port ${PORT}`);
+});
+
+// handel rejection out side express
+process.on("unhandledRejection", (err) => {
+  console.error(`UnhandledRejection Error : ${err.name} | ${err.message}`);
+  server.close(() => {
+    console.error("Shutting down .................");
+    process.exit(1);
+  });
 });
